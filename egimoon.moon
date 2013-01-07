@@ -22,14 +22,18 @@ pickup = (t, i) ->
 append = (t, v) ->
   with u = dup t
     table.insert u, v
-join = (t) ->
+joinL = (t) ->
   with u = {}
     for v in *t
       for w in *v
         table.insert u, w
 monad = (join, fmap) -> (m, k) ->
   join (fmap k) m
-bind = monad join, map
+bind = monad joinL, map
+seq = (a, b) ->
+  with u = {}
+    for i = a, b
+      table.insert u, i
 
 show = (d) ->
   if type(d) == 'table'
@@ -59,12 +63,21 @@ bindvar = (env, name, v) ->
 
 var = (name) -> { var, name }
 cons = (h, t) -> { cons, h, t }
+join = (x, y) -> { join, x, y }
 
 List = (datatype) -> {
   [cons]: (env, v, hp, tp) ->
     if type(v) == 'table' and #v > 0
       bind (match_one env, (head v), datatype, hp), (env) ->
         match_one env, (tail v), (List datatype), tp
+    else
+      {}
+  [join]: (env, v, xp, yp) ->
+    if type(v) == 'table' and #v > 0
+      bind (seq 0, #v), (i) ->
+        xs, ys = take v, i
+        bind (match_one env, xs, (List datatype), xp), (env) ->
+          match_one env, ys, (List datatype), yp
     else
       {}
   [var]: (env, v, name) ->
@@ -84,4 +97,4 @@ Number = {
 }
 
 print show match_all {1, 2, 3}, (List Number),
-  [cons var('x'), var('ts')]: => {@x, @ts}
+  [join var('xs'), var('ts')]: => {@xs, @ts}
