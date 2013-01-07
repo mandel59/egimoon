@@ -35,18 +35,6 @@ seq = (a, b) ->
     for i = a, b
       table.insert u, i
 
-show = (d) ->
-  if type(d) == 'table'
-    if #d > 0
-      "{#{table.concat ((map show) d), ','}}"
-    else
-      u = {}
-      for k, v in pairs d
-        table.insert u, "#{k}:#{show v}"
-      "{#{table.concat u, ','}}"
-  else
-    tostring(d)
-
 match_one = (env, value, datatype, pattern) ->
   datatype[head pattern] env, value, unpack tail pattern
 
@@ -62,6 +50,7 @@ bindvar = (env, name, v) ->
     e[name] = v
 
 var = (name) -> { var, name }
+val = (exp) -> { val, exp }
 cons = (h, t) -> { cons, h, t }
 join = (x, y) -> { join, x, y }
 
@@ -87,6 +76,10 @@ List = (datatype) -> {
           return {}
       { bindvar env, name, v }
     else {}
+  [val]: (env, v, exp) ->
+    if type(v) == 'table' and v == exp(env)
+      { env }
+    else {}
 }
 
 Number = {
@@ -94,7 +87,10 @@ Number = {
     if type(v) == 'number'
       { bindvar env, name, v }
     else {}
+  [val]: (env, v, exp) ->
+    if type(v) == 'number' and v == exp(env)
+      { env }
+    else {}
 }
 
-print show match_all {1, 2, 3}, (List Number),
-  [join var('xs'), var('ts')]: => {@xs, @ts}
+{ :List, :Number, :var, :val, :cons, :join, :match_all }
