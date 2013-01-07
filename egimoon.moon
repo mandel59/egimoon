@@ -15,10 +15,14 @@ take = (t, i) ->
     u[j] = v[1]
     table.remove v, 1
   return u, v
-pickup = (t, i) ->
-  u = dup t
-  table.remove u, i
-  return t[i], u
+puton = (t, k) ->
+  with u = dupT t
+    u[k] = 0 if type(u[k]) ~= 'number'
+    u[k] += 1
+pickup = (t, k) ->
+  if type(t[k]) == 'number' and t[k] > 0
+    with u = dupT t
+      u[k] -= 1
 append = (t, v) ->
   with u = dup t
     table.insert u, v
@@ -34,6 +38,7 @@ seq = (a, b) ->
   with u = {}
     for i = a, b
       table.insert u, i
+keys = (t) -> [k for k, _ in pairs t]
 
 match_one = (env, value, datatype, pattern) ->
   datatype[head pattern] env, value, unpack tail pattern
@@ -53,6 +58,28 @@ var = (name) -> { var, name }
 val = (exp) -> { val, exp }
 cons = (h, t) -> { cons, h, t }
 join = (x, y) -> { join, x, y }
+
+mkmultiset = (t) ->
+  with u = {}
+    for k in *t
+      u[k] = 0 if u[k] == nil
+      u[k] += 1
+
+unmultiset = (m) ->
+  with u = {}
+    for k, v in pairs m
+      for i = 1, v
+        table.insert u, k
+
+multiset_le = (a, b) ->
+  for k, v in pairs a
+    n = a[k] or 0
+    m = b[k] or 0
+    if not n <= m return false
+  return true
+
+multiset_eq = (a, b) ->
+  multiset_le(a, b) and multiset_le(b, a)
 
 List = (datatype) -> {
   [cons]: (env, v, hp, tp) ->
@@ -82,6 +109,28 @@ List = (datatype) -> {
     else {}
 }
 
+Multiset = (datatype) -> {
+  [cons]: (env, v, hp, tp) ->
+    if type(v) == 'table'
+      bind keys(v), (k) ->
+        u = pickup v, k
+        bind (match_one env, k, datatype, hp), (env) ->
+          match_one env, u, (List datatype), tp
+    else
+      {}
+  [var]: (env, v, name) ->
+    if type(v) == 'table'
+      for k, _ in pairs v
+        if #match_one(env, k, datatype, var!) == 0
+          return {}
+      { bindvar env, name, v }
+    else {}
+  [val]: (env, v, exp) ->
+    if type(v) == 'table' and multiset_eq v, exp(env)
+      { env }
+    else {}
+}
+
 Number = {
   [var]: (env, v, name) ->
     if type(v) == 'number'
@@ -93,4 +142,7 @@ Number = {
     else {}
 }
 
-{ :List, :Number, :var, :val, :cons, :join, :match_all }
+{
+  :List, :Multiset, :Number, :var, :val, :cons, :join, :match_all,
+  :mkmultiset, :unmultiset
+}

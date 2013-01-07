@@ -1,4 +1,5 @@
-import List, Number, var, val, cons, join, match_all from require 'egimoon'
+for k, v in pairs require 'egimoon'
+  _G[k] = v
 
 map = (f) -> (t) -> [f x for x in *t]
 show = (d) ->
@@ -15,6 +16,9 @@ show = (d) ->
 
 print show match_all {1, 2, 3}, (List Number),
   [cons var('x'), var('ts')]: => {@x, @ts}
+
+print show match_all (mkmultiset {1, 2, 3}), (Multiset Number),
+  [cons var('x'), var('ts')]: => {@x, (unmultiset @ts)}
 
 print show match_all {1, 2, 3}, (List Number),
   [join var('xs'), var('ys')]: => {@xs, @ys}
