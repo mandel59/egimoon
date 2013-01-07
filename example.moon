@@ -25,3 +25,6 @@ print show match_all {1, 2, 3}, (List Number),
 
 print show match_all {1, 1, 2, 3}, (List Number),
   [cons var('n'), cons val(=> @n), var!]: => @n
+
+print show match_all (mkmultiset {1, 2, 3, 1, 2}), (Multiset Number),
+  [cons var('n'), cons val(=> @n), var!]: => @n
