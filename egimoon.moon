@@ -1,6 +1,17 @@
 id = (...) -> ...
 pack = (...) -> {...}
 map = (f) -> (t) -> [f x for x in *t]
+show = (d) ->
+  if type(d) == 'table'
+    if #d > 0
+      "{#{table.concat ((map show) d), ','}}"
+    else
+      u = {}
+      for k, v in pairs d
+        table.insert u, "#{k}:#{show v}"
+      "{#{table.concat u, ','}}"
+  else
+    tostring(d)
 dup = map id
 mapT = (f) -> (t) -> {k, f v for k, v in pairs t}
 dupT = mapT id
@@ -25,33 +36,83 @@ pickup = (t, k) ->
       u[k] -= 1
 append = (t, v) ->
   with u = dup t
-    table.insert u, v
-joinL = (t) ->
+    for i in *v
+      table.insert u, i
+concat = (t) ->
   with u = {}
     for v in *t
       for w in *v
         table.insert u, w
 monad = (join, fmap) -> (m, k) ->
   join (fmap k) m
-bind = monad joinL, map
+mplus = (map, bind, pure, zero, plus) -> {:map, :bind, :pure, :zero, :plus}
+maybe_map = (f) -> (v) -> if v == nil then nil else f v
+maybe_plus = (u, v) -> if u ~= nil then u else v
+mplus_list = mplus map, (monad concat, map), pack, {}, append
+mplus_maybe = mplus maybe_map, (monad id, maybe_map), id, nil, maybe_plus
+fst = (f) -> (f!)
+snd = (f) ->
+  _, s = f!
+  s
+mklazylist = (t) -> ->
+  if #t > 0
+    return (head t), (mklazylist tail t)
+  else
+    nil
+unlazylist = (l) ->
+  with u = {}
+    x, l = l!
+    while x ~= nil
+      table.insert u, x
+      x, l = l!
+takeL = (l, i) ->
+  with u = {}
+    for j = 1, i
+      x, l = l!
+      table.insert u, x
+mapL = (f) -> (l) -> ->
+  h, t = l!
+  return nil if h == nil
+  (f h), (mapL f) t
+appendL = (k, l) -> ->
+  h, t = k!
+  if h ~= nil
+    return h, appendL t, l
+  return l!
+concatL = (l) -> ->
+  h, t = l!
+  return nil if h == nil
+  return (appendL h, concatL t)!
+pureL = (x) -> mklazylist { x }
+zeroL = ->
+mplus_lazylist = mplus mapL, monad(concatL, mapL), pureL, zeroL, appendL
 seq = (a, b) ->
   with u = {}
     for i = a, b
       table.insert u, i
 keys = (t) -> [k for k, _ in pairs t]
+foldl = (f) -> (x, t) ->
+  for v in *t
+    x = f x, v
+  return x
 foldr = (f) -> (x, t) ->
   for i = #t, 1, -1
     x = f x, t[i]
   return x
 
-match_one = (env, value, datatype, pattern) ->
-  datatype[head pattern] env, value, unpack tail pattern
+match_one = (mplus, env, value, datatype, pattern) ->
+  datatype[head pattern] mplus, env, value, unpack tail pattern
 
-match_all = (target, datatype, patterns) -> 
+match_with = (mplus) -> (target, datatype, patterns) -> 
   for p, f in pairs patterns
-    envM = match_one {}, target, datatype, p
-    if #envM > 0 then return (map f) envM
-  return {}
+    envM = match_one mplus, {}, target, datatype, p
+    return (mplus.map f) envM if envM ~= mplus.zero
+  return mplus.zero
+
+match_all = match_with mplus_list
+match_lazy = match_with mplus_lazylist
+
+match = (...) -> fst (match_lazy ...)
 
 loop = (range, middle, tail) ->
   (foldr (x, v) -> v x) tail, (map (i) -> (l) -> middle l, i) range
@@ -90,79 +151,81 @@ multiset_eq = (a, b) ->
   multiset_le(a, b) and multiset_le(b, a)
 
 List = (datatype) -> {
-  [cons]: (env, v, hp, tp) ->
+  [cons]: (mplus, env, v, hp, tp) ->
     if type(v) == 'table' and #v > 0
-      bind (match_one env, (head v), datatype, hp), (env) ->
-        match_one env, (tail v), (List datatype), tp
+      mplus.bind (match_one mplus, env, (head v), datatype, hp), (env) ->
+        match_one mplus, env, (tail v), (List datatype), tp
     else
-      {}
-  [join]: (env, v, xp, yp) ->
+      mplus.zero
+  [join]: (mplus, env, v, xp, yp) ->
     if type(v) == 'table' and #v > 0
-      bind (seq 0, #v), (i) ->
+      f = map (i) ->
         xs, ys = take v, i
-        bind (match_one env, xs, (List datatype), xp), (env) ->
-          match_one env, ys, (List datatype), yp
+        mplus.bind (match_one mplus, env, xs, (List datatype), xp), (env) ->
+          match_one mplus, env, ys, (List datatype), yp
+      (foldl mplus.plus) mplus.zero, f (seq 0, #v)
     else
-      {}
-  [var]: (env, v, name) ->
+      mplus.zero
+  [var]: (mplus, env, v, name) ->
     if type(v) == 'table'
       for i in *v
-        if #match_one(env, i, datatype, var!) == 0
-          return {}
-      { bindvar env, name, v }
-    else {}
-  [val]: (env, v, exp) ->
+        if match_one(mplus, env, i, datatype, var!) == mplus.zero
+          return mplus.zero
+      mplus.pure bindvar env, name, v
+    else mplus.zero
+  [val]: (mplus, env, v, exp) ->
     if type(v) == 'table' and v == exp(env)
-      { env }
-    else {}
-  [empty]: (env, v) ->
+      mplus.pure env
+    else mplus.zero
+  [empty]: (mplus, env, v) ->
     if type(v) == 'table' and #v == 0
-      { env }
-    else {}
+      mplus.pure env
+    else mplus.zero
 }
 
 Multiset = (datatype) -> {
-  [cons]: (env, v, hp, tp) ->
+  [cons]: (mplus, env, v, hp, tp) ->
     if type(v) == 'table'
-      bind keys(v), (k) ->
+      f = map (k) ->
         u = pickup v, k
-        bind (match_one env, k, datatype, hp), (env) ->
-          match_one env, u, (Multiset datatype), tp
+        mplus.bind (match_one mplus, env, k, datatype, hp), (env) ->
+          match_one mplus, env, u, (Multiset datatype), tp
+      (foldl mplus.plus) mplus.zero, f keys(v)
     else
-      {}
-  [var]: (env, v, name) ->
+      mplus.zero
+  [var]: (mplus, env, v, name) ->
     if type(v) == 'table'
       for k, _ in pairs v
-        if #match_one(env, k, datatype, var!) == 0
-          return {}
-      { bindvar env, name, v }
-    else {}
-  [val]: (env, v, exp) ->
+        if match_one(mplus, env, k, datatype, var!) == mplus.zero
+          return mplus.zero
+      mplus.pure bindvar env, name, v
+    else mplus.zero
+  [val]: (mplus, env, v, exp) ->
     if type(v) == 'table' and multiset_eq v, exp(env)
-      { env }
-    else {}
-  [empty]: (env, v) ->
+      mplus.pure env
+    else mplus.zero
+  [empty]: (mplus, env, v) ->
     if type(v) == 'table' and #(unmultiset v) == 0
-      { env }
-    else {}
+      mplus.pure env
+    else mplus.zero
 }
 
 Number = {
-  [var]: (env, v, name) ->
+  [var]: (mplus, env, v, name) ->
     if type(v) == 'number'
-      { bindvar env, name, v }
-    else {}
-  [val]: (env, v, exp) ->
+      mplus.pure bindvar env, name, v
+    else mplus.zero
+  [val]: (mplus, env, v, exp) ->
     if type(v) == 'number' and v == exp(env)
-      { env }
-    else {}
+      mplus.pure env
+    else mplus.zero
 }
 
 Something = {
-  [var]: (env, v, name) -> { bindvar env, name, v }
+  [var]: (mplus, env, v, name) -> mplus.pure bindvar env, name, v
 }
 
 {
-  :List, :Multiset, :Number, :Something, :var, :val, :cons, :join, :match_all,
-  :mkmultiset, :unmultiset, :empty, :loop
+  :List, :Multiset, :Number, :Something, :var, :val, :cons, :join, :match, :match_all,
+  :match_lazy, :mkmultiset, :unmultiset, :mklazylist, :unlazylist, :empty, :loop
 }

@@ -43,6 +43,10 @@ print show match_all (mkmultiset {1, 2, 3}), (Multiset Number),
 print show match_all {1, 2, 3, 4}, (List Number),
   [join var!, cons var('m'), join var!, cons var('n'), var!]: => {@m, @n}
 
+print show match (mkmultiset {2, 7, 2, 7, 7}), (Multiset Number),
+  [cons var('m'), cons val(=> @m), cons val(=> @m), cons var('n'), cons val(=> @n), empty!]: => "ok: #{@m}, #{@n}"
+  [var!]: => 'ko'
+
 combination = (xs, k) ->
   pattern = loop (seq 1, k), ((l, i) -> join var!, cons var(i), l), var!
   match_all xs, (List Something),
