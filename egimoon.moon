@@ -39,6 +39,10 @@ seq = (a, b) ->
     for i = a, b
       table.insert u, i
 keys = (t) -> [k for k, _ in pairs t]
+foldr = (f) -> (x, t) ->
+  for i = #t, 1, -1
+    x = f x, t[i]
+  return x
 
 match_one = (env, value, datatype, pattern) ->
   datatype[head pattern] env, value, unpack tail pattern
@@ -48,6 +52,9 @@ match_all = (target, datatype, patterns) ->
     envM = match_one {}, target, datatype, p
     if #envM > 0 then return (map f) envM
   return {}
+
+loop = (range, middle, tail) ->
+  (foldr (x, v) -> v x) tail, (map (i) -> (l) -> middle l, i) range
 
 bindvar = (env, name, v) ->
   if name == nil then env
@@ -151,7 +158,11 @@ Number = {
     else {}
 }
 
+Something = {
+  [var]: (env, v, name) -> { bindvar env, name, v }
+}
+
 {
-  :List, :Multiset, :Number, :var, :val, :cons, :join, :match_all,
-  :mkmultiset, :unmultiset, :empty
+  :List, :Multiset, :Number, :Something, :var, :val, :cons, :join, :match_all,
+  :mkmultiset, :unmultiset, :empty, :loop
 }

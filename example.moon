@@ -13,6 +13,14 @@ show = (d) ->
       "{#{table.concat u, ','}}"
   else
     tostring(d)
+foldl = (f) -> (x, t) ->
+  for v in *t
+    x = f x, v
+  return x
+seq = (a, b) ->
+  with u = {}
+    for i = a, b
+      table.insert u, i
 
 print show match_all {1, 2, 3}, (List Number),
   [cons var('x'), var('ts')]: => {@x, @ts}
@@ -34,3 +42,10 @@ print show match_all (mkmultiset {1, 2, 3}), (Multiset Number),
 
 print show match_all {1, 2, 3, 4}, (List Number),
   [join var!, cons var('m'), join var!, cons var('n'), var!]: => {@m, @n}
+
+combination = (xs, k) ->
+  pattern = loop (seq 1, k), ((l, i) -> join var!, cons var(i), l), var!
+  match_all xs, (List Something),
+    [pattern]: => @
+
+print show combination {1, 2, 3, 4}, 3
