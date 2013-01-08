@@ -100,19 +100,28 @@ foldr = (f) -> (x, t) ->
     x = f x, t[i]
   return x
 
+local match_one, match_with, match_env
+
 match_one = (mplus, env, value, datatype, pattern) ->
   datatype[head pattern] mplus, env, value, unpack tail pattern
 
-match_with = (mplus) -> (target, datatype, patterns) -> 
-  for p, f in pairs patterns
-    envM = match_one mplus, {}, target, datatype, p
-    return (mplus.map f) envM if envM ~= mplus.zero
-  return mplus.zero
+match_with = (mplus) -> (env) -> (target, datatype, pattern, fun) ->
+  (mplus.map fun) match_one mplus, env, target, datatype, pattern
 
-match_all = match_with mplus_list
-match_lazy = match_with mplus_lazylist
+match_all_env = match_with mplus_list
+match_all = match_all_env {}
+match_lazy_env = match_with mplus_lazylist
+match_lazy = match_lazy_env {}
 
-match = (...) -> fst (match_lazy ...)
+match_env = (env) ->
+  menv = match_lazy_env env
+  (target, datatype, ...) ->
+    pat_fn = {...}
+    map_pf = map (pf) ->
+      menv target, datatype, unpack pf
+    fst concatL mklazylist map_pf pat_fn
+
+match = match_env {}
 
 loop = (range, middle, tail) ->
   (foldr (x, v) -> v x) tail, (map (i) -> (l) -> middle l, i) range

@@ -23,33 +23,36 @@ seq = (a, b) ->
       table.insert u, i
 
 print show match_all {1, 2, 3}, (List Number),
-  [cons var('x'), var('ts')]: => {@x, @ts}
+  (cons var('x'), var('ts')), => {@x, @ts}
 
 print show match_all (mkmultiset {1, 2, 3}), (Multiset Number),
-  [cons var('x'), var('ts')]: => {@x, (unmultiset @ts)}
+  (cons var('x'), var('ts')), => {@x, (unmultiset @ts)}
 
 print show match_all {1, 2, 3}, (List Number),
-  [join var('xs'), var('ys')]: => {@xs, @ys}
+  (join var('xs'), var('ys')), => {@xs, @ys}
 
 print show match_all {1, 1, 2, 3}, (List Number),
-  [cons var('n'), cons val(=> @n), var!]: => @n
+  (cons var('n'), cons val(=> @n), var!), => @n
 
 print show match_all (mkmultiset {1, 2, 3, 1, 2}), (Multiset Number),
-  [cons var('n'), cons val(=> @n), var!]: => @n
+  (cons var('n'), cons val(=> @n), var!), => @n
 
 print show match_all (mkmultiset {1, 2, 3}), (Multiset Number),
-  [cons var('x'), cons var('y'), cons var('z'), empty!]: => {@x, @y, @z}
+  (cons var('x'), cons var('y'), cons var('z'), empty!), => {@x, @y, @z}
 
 print show match_all {1, 2, 3, 4}, (List Number),
-  [join var!, cons var('m'), join var!, cons var('n'), var!]: => {@m, @n}
+  (join var!, cons var('m'), join var!, cons var('n'), var!), => {@m, @n}
 
 print show match (mkmultiset {2, 7, 2, 7, 7}), (Multiset Number),
-  [cons var('m'), cons val(=> @m), cons val(=> @m), cons var('n'), cons val(=> @n), empty!]: => "ok: #{@m}, #{@n}"
-  [var!]: => 'ko'
+  {(cons var('m'), cons val(=> @m), cons val(=> @m), cons var('n'), cons val(=> @n), empty!), => "ok: #{@m}, #{@n}"},
+  {(var!), => 'ko'}
+
+print show unlazylist match_lazy (mkmultiset {5, 2, 1, 4, 3}), (Multiset Number),
+  (cons var('n'), cons val(=> @n - 1), var!), => "ok: #{@n}"
 
 combination = (xs, k) ->
   pattern = loop (seq 1, k), ((l, i) -> join var!, cons var(i), l), var!
   match_all xs, (List Something),
-    [pattern]: => @
+    (pattern), => @
 
 print show combination {1, 2, 3, 4}, 3
