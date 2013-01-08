@@ -58,6 +58,7 @@ var = (name) -> { var, name }
 val = (exp) -> { val, exp }
 cons = (h, t) -> { cons, h, t }
 join = (x, y) -> { join, x, y }
+empty = -> { empty }
 
 mkmultiset = (t) ->
   with u = {}
@@ -107,6 +108,10 @@ List = (datatype) -> {
     if type(v) == 'table' and v == exp(env)
       { env }
     else {}
+  [empty]: (env, v) ->
+    if type(v) == 'table' and #v == 0
+      { env }
+    else {}
 }
 
 Multiset = (datatype) -> {
@@ -115,7 +120,7 @@ Multiset = (datatype) -> {
       bind keys(v), (k) ->
         u = pickup v, k
         bind (match_one env, k, datatype, hp), (env) ->
-          match_one env, u, (List datatype), tp
+          match_one env, u, (Multiset datatype), tp
     else
       {}
   [var]: (env, v, name) ->
@@ -127,6 +132,10 @@ Multiset = (datatype) -> {
     else {}
   [val]: (env, v, exp) ->
     if type(v) == 'table' and multiset_eq v, exp(env)
+      { env }
+    else {}
+  [empty]: (env, v) ->
+    if type(v) == 'table' and #(unmultiset v) == 0
       { env }
     else {}
 }
@@ -144,5 +153,5 @@ Number = {
 
 {
   :List, :Multiset, :Number, :var, :val, :cons, :join, :match_all,
-  :mkmultiset, :unmultiset
+  :mkmultiset, :unmultiset, :empty
 }

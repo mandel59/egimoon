@@ -28,3 +28,9 @@ print show match_all {1, 1, 2, 3}, (List Number),
 
 print show match_all (mkmultiset {1, 2, 3, 1, 2}), (Multiset Number),
   [cons var('n'), cons val(=> @n), var!]: => @n
+
+print show match_all (mkmultiset {1, 2, 3}), (Multiset Number),
+  [cons var('x'), cons var('y'), cons var('z'), empty!]: => {@x, @y, @z}
+
+print show match_all {1, 2, 3, 4}, (List Number),
+  [join var!, cons var('m'), join var!, cons var('n'), var!]: => {@m, @n}
